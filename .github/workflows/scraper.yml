@@ -1,0 +1,25 @@
+name: ポケカ抽選通知
+
+on:
+  schedule:
+    - cron: '0 * * * *'    # 毎時00分に実行
+  workflow_dispatch:       # 手動実行も可能
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node.jsセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 依存関係インストール
+        run: npm install
+
+      - name: スクリプト実行
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: node index.js
