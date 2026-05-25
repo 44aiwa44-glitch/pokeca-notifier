@@ -3,10 +3,18 @@ const puppeteer = require('puppeteer');
 async function main() {
   const browser = await puppeteer.launch({ 
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
   });
   const page = await browser.newPage();
-  
+
+  // より本物らしいブラウザ設定（ブロック回避強化）
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36');
+  await page.setViewport({ width: 1920, height: 1080 });
+  await page.setExtraHTTPHeaders({
+    'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+  });
+
   console.log('🚀 高精度ポケカ抽選監視開始...');
 
   const monitorUrls = [
@@ -21,17 +29,16 @@ async function main() {
   for (let url of monitorUrls) {
     try {
       await page.goto(url, { waitUntil: 'networkidle2' });
-      const items = await page.evaluate((url) => {
+      const items = await page.evaluate(() => {
         const results = [];
-        const links = document.querySelectorAll('a');
-        links.forEach(a => {
+        document.querySelectorAll('a').forEach(a => {
           const text = a.textContent.trim();
           if (text.includes('抽選') || text.includes('予約') || text.includes('BOX')) {
             results.push({ name: text, link: a.href });
           }
         });
         return results;
-      }, url);
+      });
       allItems = allItems.concat(items);
     } catch(e) {
       console.error(`監視エラー (${url}):`, e.message);
@@ -56,20 +63,12 @@ async function main() {
 
       // 売値（pokecazilla）
       await page.goto(`https://pokecazilla.com/search?q=${encodeURIComponent(item.name)}`, { waitUntil: 'networkidle2' });
-      
-      // デバッグ用：ページの内容を一部出力
-      const pageTitle = await page.title();
-      const bodyTextSample = await page.evaluate(() => document.body.innerText.substring(0, 800));
-      console.log(`検索ページ: ${pageTitle}`);
-      console.log(`本文抜粋: ${bodyTextSample}`);
-
       const sellPrice = await page.evaluate(() => {
         const text = document.body.innerText;
         const patterns = [
           /最安価格[:：]\s*([\d,]+)円/,
           /最安値[:：]\s*([\d,]+)円/,
           /最低販売価格[:：]\s*([\d,]+)円/,
-          /平均販売価格[:：]\s*([\d,]+)円/,
           /([\d,]+)円.*?(最安|最低|価格)/,
           /([\d]{4,6})円/
         ];
