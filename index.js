@@ -1,7 +1,12 @@
 const puppeteer = require('puppeteer');
 
 async function main() {
-  const browser = await puppeteer.launch({ headless: true });
+  // GitHub Actions向けにsandboxを無効化
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+
   const page = await browser.newPage();
   
   console.log('🚀 ポケカ抽選監視開始...');
@@ -24,14 +29,14 @@ async function main() {
 
   console.log(`📦 抽選商品を${items.length}件発見`);
 
-  // 2. 各商品の売値をpokecazilla.comから取得
+  // 2. 各商品についてpokecazilla.comで最安売値を調べる
   for (let item of items) {
     try {
       await page.goto(`https://pokecazilla.com/search?q=${encodeURIComponent(item.name)}`, { waitUntil: 'networkidle2' });
 
       const sellPrice = await page.evaluate(() => {
-        const priceText = document.body.innerText;
-        const match = priceText.match(/最安価格[:：]\s*([\d,]+)円|最安値[:：]\s*([\d,]+)円|([\d,]+)円.*?(最安|最低)/);
+        const text = document.body.innerText;
+        const match = text.match(/最安価格[:：]\s*([\d,]+)円|最安値[:：]\s*([\d,]+)円|([\d,]+)円.*?(最安|最低)/);
         if (match) {
           return parseInt((match[1] || match[2] || match[3]).replace(/,/g, ''));
         }
@@ -39,7 +44,8 @@ async function main() {
       });
 
       const buyPrice = 5500; // 仕入れ値目安
-      const profit = sellPrice > 0 ? Math.floor(sellPrice - buyPrice - (sellPrice * 0.1) - 800) : 0;
+      const fee = sellPrice * 0.1 + 800;
+      const profit = sellPrice > 0 ? Math.floor(sellPrice - buyPrice - fee) : 0;
 
       if (profit >= 5000) {
         console.log(`🎯 通知対象: ${item.name} (利益: ${profit}円)`);
