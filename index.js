@@ -1,17 +1,14 @@
 const puppeteer = require('puppeteer');
 
 async function main() {
-  // GitHub Actions向けにsandboxを無効化
-  const browser = await puppeteer.launch({
+  const browser = await puppeteer.launch({ 
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
-
   const page = await browser.newPage();
   
   console.log('🚀 ポケカ抽選監視開始...');
 
-  // 1. pokecawatch.comから抽選情報を取得
   await page.goto('https://pokecawatch.com/category/%E6%8A%BD%E9%81%B8%E3%83%BB%E4%BA%88%E7%B4%84%E6%83%85%E5%A0%B1', { waitUntil: 'networkidle2' });
 
   const items = await page.evaluate(() => {
@@ -29,7 +26,6 @@ async function main() {
 
   console.log(`📦 抽選商品を${items.length}件発見`);
 
-  // 2. 各商品についてpokecazilla.comで最安売値を調べる
   for (let item of items) {
     try {
       await page.goto(`https://pokecazilla.com/search?q=${encodeURIComponent(item.name)}`, { waitUntil: 'networkidle2' });
@@ -43,11 +39,15 @@ async function main() {
         return 0;
       });
 
-      const buyPrice = 5500; // 仕入れ値目安
+      const buyPrice = 5500;
       const fee = sellPrice * 0.1 + 800;
       const profit = sellPrice > 0 ? Math.floor(sellPrice - buyPrice - fee) : 0;
 
-      if (profit >= 5000) {
+      // デバッグログを詳細に出力
+      console.log(`商品: ${item.name} | 売値: ${sellPrice}円 | 利益: ${profit}円`);
+
+      // テスト中は5000円未満でも通知（後で元に戻せます）
+      if (profit >= 0) {   // ← 一時的に0円以上に緩め
         console.log(`🎯 通知対象: ${item.name} (利益: ${profit}円)`);
         
         await fetch(process.env.DISCORD_WEBHOOK, {
