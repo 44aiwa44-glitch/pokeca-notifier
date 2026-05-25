@@ -14,7 +14,7 @@ jobs:
       - name: Node.jsセットアップ
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'     # ← ここを22に変更（警告対策）
 
       - name: 依存関係インストール
         run: npm install
